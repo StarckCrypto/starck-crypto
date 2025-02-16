@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+// Import Ownable for access control, IERC20 for token interface,
+// and MerkleProof for verifying the Merkle tree proof.
+import "node_modules/@openzeppelin/contracts/access/Ownable.sol";
+import "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "node_modules/@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+
+contract WithdrawalClaims is Ownable {
+  // The token that is held by the contract.
+  IERC20 public token;
+
+  // The current Merkle root representing all valid withdrawal requests.
+  bytes32 public merkleRoot;
+
+  // Mapping to track which withdrawal requests (by their unique index)
+  // have been claimed already.
+  mapping(uint256 => bool) public claimed;
+
+  // Emitted when the Merkle root is updated.
+  event MerkleRootUpdated(bytes32 newMerkleRoot);
+
+  // Emitted when a withdrawal is claimed.
+  event Claimed(uint256 indexed index, address indexed account, uint256 amount);
+
+  /**
+   * @notice Set the token that this contract will distribute.
+   * @param _token The address of the ERC20 token.
+   */
+  constructor(IERC20 _token) Ownable(msg.sender) {
+    token = _token;
+  }
+
+  /**
+   * @notice Allows the owner (or an off-chain process) to update the Merkle root.
+   * This function should be called periodically (e.g., every 12 or 24 hours)
+   * to capture the latest withdrawal requests.
+   * @param _merkleRoot The new Merkle root.
+   */
+  function updateMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+    merkleRoot = _merkleRoot;
+    emit MerkleRootUpdated(_merkleRoot);
+  }
+
+  /**
+   * @notice Allows a user to claim their tokens after the lock period has ended.
+   * @param index A unique index identifying the withdrawal request.
+   * @param account The address of the user (must be msg.sender).
+   * @param amount The amount of tokens to be claimed.
+   * @param unlockTime The timestamp after which the claim is allowed.
+   * @param merkleProof The Merkle proof that validates this withdrawal request.
+   */
+  function claim(
+    uint256 index,
+    address account,
+    uint256 amount,
+    uint256 unlockTime,
+    bytes32[] calldata merkleProof
+  ) external {
+    // Ensure this request has not been claimed already.
+    require(!claimed[index], "Withdrawal already claimed");
+
+    // Only the account owner can claim.
+    require(account == msg.sender, "Not authorized to claim");
+
+    // Ensure that the lock period has passed.
+    require(block.timestamp >= unlockTime, "Withdrawal still locked");
+
+    // Recreate the leaf node. It must match the one that was used off-chain to
+    // build the Merkle tree. The leaf is computed from the unique index, the
+    // account, the amount, and the unlockTime.
+    bytes32 leaf = keccak256(abi.encodePacked(index, account, amount, unlockTime));
+
+    // Verify the provided proof against the stored Merkle root.
+    require(MerkleProof.verify(merkleProof, merkleRoot, leaf), "Invalid Merkle proof");
+
+    // Mark the request as claimed to prevent double claims.
+    claimed[index] = true;
+
+    // Transfer the tokens from this contract to the user.
+    require(token.transfer(account, amount), "Token transfer failed");
+
+    emit Claimed(index, account, amount);
+  }
+}
