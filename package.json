@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "test": "npx hardhat coverage",
-    "deploy:bsc": "npx hardhat run ./scripts/deploy.js --network bsc"
+    "deploy:bsc": "npx hardhat run ./scripts/deploy.js --network bsc",
+    "verify:bsc": "npx hardhat verify --network bsc 0x8Ce804Aa52d6f3cc95E72416B08a2D54618D99CE \"0xa35b5c783117e107644056f5d39faa468e9d8d47\""
   },
   "dependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-etherscan": "^3.1.8",
     "@nomiclabs/hardhat-waffle": "^2.0.6",
     "@openzeppelin/contracts": "^5.2.0",
     "chai": "^5.2.0",

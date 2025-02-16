@@ -1,6 +1,7 @@
 require("dotenv").config();
 require("@nomiclabs/hardhat-ethers");
 require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-etherscan");
 require("solidity-coverage");
 
 /**
@@ -14,5 +15,8 @@ module.exports = {
       accounts: [process.env.PRIVATE_KEY],
       chainId: 56,
     },
+  },
+  etherscan: {
+    apiKey: process.env.BSCSCAN_API_KEY,
   },
 };

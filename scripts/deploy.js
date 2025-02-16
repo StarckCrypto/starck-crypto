@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 
-export const STK_TOKEN_ADDRESS = "0xa35b5c783117e107644056f5d39faa468e9d8d47";
+const STK_TOKEN_ADDRESS = "0xa35b5c783117e107644056f5d39faa468e9d8d47";
 
 async function main() {
   const Contract = await ethers.getContractFactory("WithdrawalClaims");
