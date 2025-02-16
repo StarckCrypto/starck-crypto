@@ -16,13 +16,13 @@ contract WithdrawalClaims is Ownable {
 
   // Mapping to track which withdrawal requests (by their unique index)
   // have been claimed already.
-  mapping(uint256 => bool) public claimed;
+  mapping(bytes32 => bool) public claimed;
 
   // Emitted when the Merkle root is updated.
   event MerkleRootUpdated(bytes32 newMerkleRoot);
 
   // Emitted when a withdrawal is claimed.
-  event Claimed(uint256 indexed index, address indexed account, uint256 amount);
+  event Claimed(bytes32 indexed index, address indexed account, uint256 amount);
 
   /**
    * @notice Set the token that this contract will distribute.
@@ -45,21 +45,21 @@ contract WithdrawalClaims is Ownable {
 
   /**
    * @notice Allows a user to claim their tokens after the lock period has ended.
-   * @param index A unique index identifying the withdrawal request.
+   * @param id A unique identifier for the withdrawal request (as bytes32).
    * @param account The address of the user (must be msg.sender).
    * @param amount The amount of tokens to be claimed.
    * @param unlockTime The timestamp after which the claim is allowed.
    * @param merkleProof The Merkle proof that validates this withdrawal request.
    */
   function claim(
-    uint256 index,
+    bytes32 id,
     address account,
     uint256 amount,
     uint256 unlockTime,
     bytes32[] calldata merkleProof
   ) external {
     // Ensure this request has not been claimed already.
-    require(!claimed[index], "Withdrawal already claimed");
+    require(!claimed[id], "Withdrawal already claimed");
 
     // Only the account owner can claim.
     require(account == msg.sender, "Not authorized to claim");
@@ -70,17 +70,17 @@ contract WithdrawalClaims is Ownable {
     // Recreate the leaf node. It must match the one that was used off-chain to
     // build the Merkle tree. The leaf is computed from the unique index, the
     // account, the amount, and the unlockTime.
-    bytes32 leaf = keccak256(abi.encodePacked(index, account, amount, unlockTime));
+    bytes32 leaf = keccak256(abi.encodePacked(id, account, amount, unlockTime));
 
     // Verify the provided proof against the stored Merkle root.
     require(MerkleProof.verify(merkleProof, merkleRoot, leaf), "Invalid Merkle proof");
 
     // Mark the request as claimed to prevent double claims.
-    claimed[index] = true;
+    claimed[id] = true;
 
     // Transfer the tokens from this contract to the user.
     require(token.transfer(account, amount), "Token transfer failed");
 
-    emit Claimed(index, account, amount);
+    emit Claimed(id, account, amount);
   }
 }
