@@ -5,7 +5,7 @@
   "scripts": {
     "test": "npx hardhat coverage",
     "deploy:bsc": "npx hardhat run ./scripts/deploy.js --network bsc",
-    "verify:bsc": "npx hardhat verify --network bsc 0x36002875a63DE20fABf5FF505237AD774852A36a \"0xa35b5c783117e107644056f5d39faa468e9d8d47\""
+    "verify:bsc": "npx hardhat verify --network bsc 0xdaeDE3D3F7A2B6a8292dF629aD315141f079C0bB \"0xa35b5c783117e107644056f5d39faa468e9d8d47\""
   },
   "dependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.3",

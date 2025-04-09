@@ -11,12 +11,8 @@ describe("WithdrawalClaims", function () {
   let owner, alice, bob;
   let token, withdrawalClaims;
 
-  // Computes the leaf hash as defined in the contract.
-  const computeLeaf = (id, account, amount, unlockTime) => {
-    return ethers.utils.solidityKeccak256(
-      ["bytes32", "address", "uint256", "uint256"],
-      [id, account, amount, unlockTime]
-    );
+  const computeLeaf = (id, amount, unlockTime) => {
+    return ethers.utils.solidityKeccak256(["bytes32", "uint256", "uint256"], [id, amount, unlockTime]);
   };
 
   beforeEach(async function () {
@@ -58,7 +54,7 @@ describe("WithdrawalClaims", function () {
       const block = await ethers.provider.getBlock("latest");
       unlockTime = block.timestamp - 1;
 
-      leaf = computeLeaf(id, alice.address, amount, unlockTime);
+      leaf = computeLeaf(id, amount, unlockTime);
       proof = [];
 
       await withdrawalClaims.updateMerkleRoot(leaf);
@@ -67,44 +63,53 @@ describe("WithdrawalClaims", function () {
     it("allows a valid claim and transfers tokens", async function () {
       const aliceInitialBalance = await token.balanceOf(alice.address);
 
-      await expect(withdrawalClaims.connect(alice).claim(id, alice.address, amount, unlockTime, proof))
+      await expect(withdrawalClaims.connect(alice).claim(id, amount, unlockTime, proof))
         .to.emit(withdrawalClaims, "Claimed")
         .withArgs(id, alice.address, amount);
+
       expect(await withdrawalClaims.claimed(id)).to.equal(true);
 
       const aliceNewBalance = await token.balanceOf(alice.address);
+
       expect(aliceNewBalance.sub(aliceInitialBalance)).to.equal(amount);
     });
 
     it("reverts when claiming the same withdrawal twice", async function () {
-      await withdrawalClaims.connect(alice).claim(id, alice.address, amount, unlockTime, proof);
-      await expect(
-        withdrawalClaims.connect(alice).claim(id, alice.address, amount, unlockTime, proof)
-      ).to.be.revertedWith("Withdrawal already claimed");
+      await withdrawalClaims.connect(alice).claim(id, amount, unlockTime, proof);
+      await expect(withdrawalClaims.connect(alice).claim(id, amount, unlockTime, proof)).to.be.revertedWith(
+        "Withdrawal already claimed"
+      );
     });
 
-    it("reverts when an unauthorized caller attempts a claim", async function () {
-      await expect(
-        withdrawalClaims.connect(bob).claim(id, alice.address, amount, unlockTime, proof)
-      ).to.be.revertedWith("Not authorized to claim");
+    it("allows any caller with a valid proof to claim", async function () {
+      const bobInitialBalance = await token.balanceOf(bob.address);
+
+      await expect(withdrawalClaims.connect(bob).claim(id, amount, unlockTime, proof))
+        .to.emit(withdrawalClaims, "Claimed")
+        .withArgs(id, bob.address, amount);
+      expect(await withdrawalClaims.claimed(id)).to.equal(true);
+
+      const bobNewBalance = await token.balanceOf(bob.address);
+
+      expect(bobNewBalance.sub(bobInitialBalance)).to.equal(amount);
     });
 
     it("reverts if the lock period has not elapsed", async function () {
       const block = await ethers.provider.getBlock("latest");
       const futureUnlockTime = block.timestamp + 1000;
-      const futureLeaf = computeLeaf(id, alice.address, amount, futureUnlockTime);
+      const futureLeaf = computeLeaf(id, amount, futureUnlockTime);
       await withdrawalClaims.updateMerkleRoot(futureLeaf);
 
-      await expect(
-        withdrawalClaims.connect(alice).claim(id, alice.address, amount, futureUnlockTime, [])
-      ).to.be.revertedWith("Withdrawal still locked");
+      await expect(withdrawalClaims.connect(alice).claim(id, amount, futureUnlockTime, [])).to.be.revertedWith(
+        "Withdrawal still locked"
+      );
     });
 
     it("reverts with an invalid merkle proof", async function () {
       const invalidAmount = amount.add(1);
-      await expect(
-        withdrawalClaims.connect(alice).claim(id, alice.address, invalidAmount, unlockTime, proof)
-      ).to.be.revertedWith("Invalid Merkle proof");
+      await expect(withdrawalClaims.connect(alice).claim(id, invalidAmount, unlockTime, proof)).to.be.revertedWith(
+        "Invalid Merkle proof"
+      );
     });
 
     it("reverts when token transfer fails", async function () {
@@ -113,7 +118,7 @@ describe("WithdrawalClaims", function () {
       await unfundedClaims.deployed();
 
       await unfundedClaims.updateMerkleRoot(leaf);
-      await expect(unfundedClaims.connect(alice).claim(id, alice.address, amount, unlockTime, proof)).to.be.reverted;
+      await expect(unfundedClaims.connect(alice).claim(id, amount, unlockTime, proof)).to.be.reverted;
     });
   });
 });
